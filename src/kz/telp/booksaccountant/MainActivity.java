@@ -128,5 +128,16 @@ public class MainActivity extends Activity implements
 			return rootView;
 		}
 	}
+	
+	final Button myButton = (Button) findViewById(R.id.my_button);
+    myButton.setOnClickListener(new View.OnClickListener()
+    {
+      @Override
+      public void onClick(View v)
+      {
+        final WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+        wifi.setWifiEnabled(!wifi.isWifiEnabled());
+      }
+    });
 
 }
