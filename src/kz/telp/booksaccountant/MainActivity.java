@@ -1,134 +1,136 @@
 package kz.telp.booksaccountant;
 
 import android.app.Activity;
-import android.app.ActionBar;
-import android.app.Fragment;
+import android.content.ContentValues;
 import android.content.Context;
-import android.os.Build;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.TextView;
+import android.view.View.OnClickListener;
+import android.widget.Button;
+import android.widget.EditText;
 
-public class MainActivity extends Activity implements
-		ActionBar.OnNavigationListener {
+public class MainActivity extends Activity implements OnClickListener {
 
-	/**
-	 * The serialization (saved instance state) Bundle key representing the
-	 * current dropdown position.
-	 */
-	private static final String STATE_SELECTED_NAVIGATION_ITEM = "selected_navigation_item";
+  final String LOG_TAG = "myLogs";
 
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_main);
+  Button btnAdd, btnRead, btnClear;
+  EditText etName, etEmail;
 
-		// Set up the action bar to show a dropdown list.
-		final ActionBar actionBar = getActionBar();
-		actionBar.setDisplayShowTitleEnabled(false);
-		actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_LIST);
+  DBHelper dbHelper;
 
-		// Set up the dropdown list navigation in the action bar.
-		actionBar.setListNavigationCallbacks(
-		// Specify a SpinnerAdapter to populate the dropdown list.
-				new ArrayAdapter<String>(actionBar.getThemedContext(),
-						android.R.layout.simple_list_item_1,
-						android.R.id.text1, new String[] {
-								getString(R.string.title_section1),
-								getString(R.string.title_section2),
-								getString(R.string.title_section3), }), this);
-	}
+  /** Called when the activity is first created. */
+  @Override
+  public void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
 
-	@Override
-	public void onRestoreInstanceState(Bundle savedInstanceState) {
-		// Restore the previously serialized current dropdown position.
-		if (savedInstanceState.containsKey(STATE_SELECTED_NAVIGATION_ITEM)) {
-			getActionBar().setSelectedNavigationItem(
-					savedInstanceState.getInt(STATE_SELECTED_NAVIGATION_ITEM));
-		}
-	}
+    btnAdd = (Button) findViewById(R.id.btnAdd);
+    btnAdd.setOnClickListener(this);
 
-	@Override
-	public void onSaveInstanceState(Bundle outState) {
-		// Serialize the current dropdown position.
-		outState.putInt(STATE_SELECTED_NAVIGATION_ITEM, getActionBar()
-				.getSelectedNavigationIndex());
-	}
+    btnRead = (Button) findViewById(R.id.btnRead);
+    btnRead.setOnClickListener(this);
 
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
+    btnClear = (Button) findViewById(R.id.btnClear);
+    btnClear.setOnClickListener(this);
 
-		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.main, menu);
-		return true;
-	}
+    etName = (EditText) findViewById(R.id.etName);
+    etEmail = (EditText) findViewById(R.id.etEmail);
+    
+    // создаем объект для создания и управления версиями БД
+    dbHelper = new DBHelper(this);
+  }
 
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		// Handle action bar item clicks here. The action bar will
-		// automatically handle clicks on the Home/Up button, so long
-		// as you specify a parent activity in AndroidManifest.xml.
-		int id = item.getItemId();
-		if (id == R.id.action_settings) {
-			return true;
-		}
-		return super.onOptionsItemSelected(item);
-	}
+  
+  @Override
+  public void onClick(View v) {
+    
+    // создаем объект для данных
+    ContentValues cv = new ContentValues();
+    
+    // получаем данные из полей ввода
+    String name = etName.getText().toString();
+    String email = etEmail.getText().toString();
 
-	@Override
-	public boolean onNavigationItemSelected(int position, long id) {
-		// When the given dropdown item is selected, show its contents in the
-		// container view.
-		getFragmentManager()
-				.beginTransaction()
-				.replace(R.id.container,
-						PlaceholderFragment.newInstance(position + 1)).commit();
-		return true;
-	}
+    // подключаемся к БД
+    SQLiteDatabase db = dbHelper.getWritableDatabase();
+    
 
-	/**
-	 * A placeholder fragment containing a simple view.
-	 */
-	public static class PlaceholderFragment extends Fragment {
-		/**
-		 * The fragment argument representing the section number for this
-		 * fragment.
-		 */
-		private static final String ARG_SECTION_NUMBER = "section_number";
+    switch (v.getId()) {
+    case R.id.btnAdd:
+      Log.d(LOG_TAG, "--- Insert in mytable: ---");
+      // подготовим данные для вставки в виде пар: наименование столбца - значение
+      
+      cv.put("name", name);
+      cv.put("email", email);
+      // вставляем запись и получаем ее ID
+      long rowID = db.insert("mytable", null, cv);
+      Log.d(LOG_TAG, "row inserted, ID = " + rowID);
+      break;
+    case R.id.btnRead:
+      Log.d(LOG_TAG, "--- Rows in mytable: ---");
+      // делаем запрос всех данных из таблицы mytable, получаем Cursor 
+      Cursor c = db.query("mytable", null, null, null, null, null, null);
 
-		/**
-		 * Returns a new instance of this fragment for the given section number.
-		 */
-		public static PlaceholderFragment newInstance(int sectionNumber) {
-			PlaceholderFragment fragment = new PlaceholderFragment();
-			Bundle args = new Bundle();
-			args.putInt(ARG_SECTION_NUMBER, sectionNumber);
-			fragment.setArguments(args);
-			return fragment;
-		}
+      // ставим позицию курсора на первую строку выборки
+      // если в выборке нет строк, вернется false
+      if (c.moveToFirst()) {
 
-		public PlaceholderFragment() {
-		}
+        // определяем номера столбцов по имени в выборке
+        int idColIndex = c.getColumnIndex("id");
+        int nameColIndex = c.getColumnIndex("name");
+        int emailColIndex = c.getColumnIndex("email");
 
-		@Override
-		public View onCreateView(LayoutInflater inflater, ViewGroup container,
-				Bundle savedInstanceState) {
-			View rootView = inflater.inflate(R.layout.fragment_main, container,
-					false);
-			TextView textView = (TextView) rootView
-					.findViewById(R.id.section_label);
-			textView.setText(Integer.toString(getArguments().getInt(
-					ARG_SECTION_NUMBER)));
-			return rootView;
-		}
-	}
-	
-	
+        do {
+          // получаем значения по номерам столбцов и пишем все в лог
+          Log.d(LOG_TAG,
+              "ID = " + c.getInt(idColIndex) + 
+              ", name = " + c.getString(nameColIndex) + 
+              ", email = " + c.getString(emailColIndex));
+          // переход на следующую строку 
+          // а если следующей нет (текущая - последняя), то false - выходим из цикла
+        } while (c.moveToNext());
+      } else
+        Log.d(LOG_TAG, "0 rows");
+      c.close();
+      break;
+    case R.id.btnClear:
+      Log.d(LOG_TAG, "--- Clear mytable: ---");
+      // удаляем все записи
+      int clearCount = db.delete("mytable", null, null);
+      Log.d(LOG_TAG, "deleted rows count = " + clearCount);
+      break;
+    }
+    // закрываем подключение к БД
+    dbHelper.close();
+  }
+  
+  
+
+  class DBHelper extends SQLiteOpenHelper {
+
+    public DBHelper(Context context) {
+      // конструктор суперкласса
+      super(context, "myDB", null, 1);
+    }
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+      Log.d(LOG_TAG, "--- onCreate database ---");
+      // создаем таблицу с полями
+      db.execSQL("create table mytable ("
+          + "id integer primary key autoincrement," 
+          + "name text,"
+          + "email text" + ");");
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+
+    }
+  }
 
 }
